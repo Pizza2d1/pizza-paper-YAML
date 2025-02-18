@@ -32,7 +32,6 @@ else
 fi
 ###########################################
 
-
 #Adds the neccessary directories and files in case the user doesn't have them
 if [ ! -d "/home/$user/Pictures" ]; then                              #Makes a Pictures directory in case you are a little weird idiot that feels like they're better than everyone else, along with making a directory for custom wallpapers
   echo "wtf why don't you have a Pictures folder, making one now to store your custom wallpapers..."
@@ -141,13 +140,14 @@ function AddWallpaper (){                     #Will let the user add a wallpaper
     URL=$(zenity --entry --title="Please input a image URL")
     if [[ $URL == *".jpg"* || $URL == *".jpeg"* || $URL == *".png"* ]]; then           #Will only accept files that contain image extensions
       if [[  ${WallpaperPathList[@]} != *"$URL"* ]]; then					                         #Checks to make sure that PART of $fileL is nowhere in the WallpaperPathList array
-        cd /home/pizza2d1/Pictures/pizza-papers/ && { curl -O "$URL" ; cd -; }            #Downloads the URL image to the pizza-papers directory   ##################################
-        echo "$fileName has been added to your wallpapers"
-        fileName=$(basename $URL | sed -r 's/\.//')
-        yq -yi ".customWallpapers.$fileName = \"$URL\"" /home/$user/Pictures/pizza-papers/settings.yaml
+        fileName=$(basename "$URL")
+        newFileName=$(echo "$fileName" | sed 's/[[:punct:]]//g')
+        cd /home/$user/Pictures/pizza-papers/ && { curl -O "$URL" ; cd -; }            #Downloads the URL image to the pizza-papers directory   ##################################
+        echo "$newFileName has been added to your wallpapers"
+        yq -yi ".customWallpapers.\"$newFileName\" = \"/home/$user/Pictures/pizza-papers/$fileName\"" /home/$user/Pictures/pizza-papers/settings.yaml
         if [[ $AddToSet == true ]]; then ##################Adding same url image issue
-          gsettings set org.gnome.desktop.background picture-uri /home/$user/Pictures/pizza-papers/$URL
-          gsettings set org.gnome.desktop.background picture-uri-dark /home/$user/Pictures/pizza-papers/$URL
+          gsettings set org.gnome.desktop.background picture-uri /home/$user/Pictures/pizza-papers/$fileName
+          gsettings set org.gnome.desktop.background picture-uri-dark /home/$user/Pictures/pizza-papers/$fileName
         fi
       else
         echo "That wallpaper is already in your list of wallpapers"
@@ -161,7 +161,6 @@ function AddWallpaper (){                     #Will let the user add a wallpaper
     echo -e "\nInvalid input\n"
   fi
 }
-
 
 function SelectWallpaper (){                  #The user chooses a wallpaper that they they have stored in a directory that they added using AddWallpaper
   if [[ $WallpaperPathList == "" ]]; then           #Will check to make sure that the user has entered any wallpapers yet
@@ -207,6 +206,7 @@ function SelectWallpaper (){                  #The user chooses a wallpaper that
     echo "Invalid input"
   fi
 }
+
 function GUISelectWallpaper (){               #The user chooses a wallpaper out of their custom wallpapers from a feh gui image selector
   if test -e /home/$user/Pictures/pizza-papers/; then
     touch TEMPLIST.txt
@@ -253,13 +253,7 @@ function RemoveWallpaper (){                  #The user can choose what wallpape
         rm /home/$user/Pictures/pizza-papers/$SingleImage
         echo "Deleted $SingleImage"
         SingleImageKey=$(echo $SingleImage | sed -r 's/\.//')
-        # WallpaperPathList=( ${WallpaperPathList[@]/*"$SingleImage"*} )    #Will take out the wallpaper with the same name as what was selected so DONT HAVE IMAGES WITH SAME NAME, EVEN WITH DIFFERENT PATHS
         yq -yi "del(.customWallpapers.$SingleImageKey)" /home/$user/Pictures/pizza-papers/settings.yaml
-        
-        # rm /home/$user/Pictures/pizza-papers/settings.yaml                  #Resets the wallpaper list
-        # for LINE in ${WallpaperPathList[@]}; do
-        #   echo $LINE >> /home/$user/Pictures/pizza-papers/settings.yaml     #Creates and writes the new array to the new /home/$user/Pictures/pizza-papers/settings.yaml
-        # done
       else
         echo "Did not delete $SingleImage"
       fi
@@ -335,9 +329,11 @@ function RotateWallpaper (){
       fi
     done
     for i in $(seq $Index $((${#WallpaperPathList[@]}-1))); do
-      gsettings set org.gnome.desktop.background picture-uri "${WallpaperPathList[i]}"
-      gsettings set org.gnome.desktop.background picture-uri-dark "${WallpaperPathList[i]}"
-      sleep $ROTATION_SPEED
+      if [[ ${WallpaperPathList[i]} != *"astolfo"* ]]; then #################### Prevents the astolfo wallpaper from showing up randomly in class (fuck fuck fuck I messed up)
+        gsettings set org.gnome.desktop.background picture-uri "${WallpaperPathList[i]}"
+        gsettings set org.gnome.desktop.background picture-uri-dark "${WallpaperPathList[i]}"
+        sleep $ROTATION_SPEED
+      fi
     done
   fi
   while true; do
@@ -347,9 +343,11 @@ function RotateWallpaper (){
       $CurrentWallpaperDark=$CurrentWallpaper
     fi
     for i in $(seq 0 $((${#WallpaperPathList[@]}-1))); do
-      gsettings set org.gnome.desktop.background picture-uri "${WallpaperPathList[i]}"
-      gsettings set org.gnome.desktop.background picture-uri-dark "${WallpaperPathList[i]}"
-      sleep $ROTATION_SPEED
+      if [[ ${WallpaperPathList[i]} != *"astolfo"* ]]; then
+        gsettings set org.gnome.desktop.background picture-uri "${WallpaperPathList[i]}"
+        gsettings set org.gnome.desktop.background picture-uri-dark "${WallpaperPathList[i]}"
+        sleep $ROTATION_SPEED
+      fi
     done
   done
 }
@@ -368,13 +366,6 @@ function GetSettings() {  #Will return number values depending on what was piped
 
   #Will display settings and what value they are
   if [ -t 0 ]; then #Will check if a value has NOT been piped INTO the function, running [ -t 1 ] again will test if the function is being piped OUT of the function
-    # SettingNumber=0
-    # for LINE in $(yq -r '.settings[]' /home/$user/Pictures/pizza-papers/settings.yaml); do
-    #   SettingNumber=$(( $SettingNumber+1 ))
-    #   if [[ ! $LINE == *"/"* ]]; then
-    #     printf "%s\n" "$SettingNumber. ${LINE:0:24}"    # {parameter:startingposition:offset}  Variable name, starts at 0, how many letters you want to encompass/read
-    #   fi
-    # done    #Will use the /home/$user/Pictures/pizza-papers/settings.yaml file as the input for the read -r operation
     echo -e "Enable CLI Selection:  $(yq '.settings.enableCLI' /home/$user/Pictures/pizza-papers/settings.yaml)     #Lets the user use CLI instead of the default GUI selectors"
     echo -e "Default Function:      $(yq '.settings.defaultFunction' /home/$user/Pictures/pizza-papers/settings.yaml)        #Decides what main function will run when pizza-paper is executed without arguments (LessHelp, Help_Options, AddWallpaper, SelectWallpaper)"
     echo -e "Select when adding:    $(yq '.settings.addSelectedFile' /home/$user/Pictures/pizza-papers/settings.yaml)     #When the user adds a new wallpaper it will automatically make it their wallpaper"
@@ -394,16 +385,8 @@ function GetSettings() {  #Will return number values depending on what was piped
   fi
 }
 
-function Setting1 (){     #Used for enabling CLI interface
-  #Switches the value of the first setting
-  if [[ $(yq '.settings.enableCLI' /home/$user/Pictures/pizza-papers/settings.yaml) == true ]]; then
-    yq -yi '.settings.enableCLI = false' /home/$user/Pictures/pizza-papers/settings.yaml
-  else
-    yq -yi '.settings.enableCLI = true' /home/$user/Pictures/pizza-papers/settings.yaml
-  fi
-}
 function DisplayCurrentDefault (){
-  SettingValue=$(echo "Default" | GetSettings) #####################int not string
+  SettingValue=$(echo "Default" | GetSettings)
   if [[ $SettingValue == "1" ]]; then
     echo "###########################################"
     echo -e "\nCurrent Default Function:    LessHelp -----------> Will display a short amount of arguments the user can do\n"
@@ -419,9 +402,16 @@ function DisplayCurrentDefault (){
   fi
 }
 
+function Setting1 (){     #Used for enabling CLI interface
+  #Switches the value of the first setting
+  if [[ $(yq '.settings.enableCLI' /home/$user/Pictures/pizza-papers/settings.yaml) == true ]]; then
+    yq -yi '.settings.enableCLI = false' /home/$user/Pictures/pizza-papers/settings.yaml
+  else
+    yq -yi '.settings.enableCLI = true' /home/$user/Pictures/pizza-papers/settings.yaml
+  fi
+}
+
 function Setting2 (){     #Used for changing the default function...
-  SETTING_NUMBER=2 #Use this to determine what setting is being changed
-  
   #Switches the value of the first setting
   if [[ $(yq '.settings.defaultFunction' /home/$user/Pictures/pizza-papers/settings.yaml) == 4 ]]; then
     yq -yi '.settings.defaultFunction = 1' /home/$user/Pictures/pizza-papers/settings.yaml
@@ -433,10 +423,8 @@ function Setting2 (){     #Used for changing the default function...
 }
 
 function Setting3 (){     #Used for if the user wants to set new wallpapers
-  SETTING_NUMBER=3 #Use this to determine what setting is being changed
-
   #Switches the value of the first setting
-  if [[ $(yq '.settings.addSelectedFile' /home/$user/Pictures/pizza-papers/settings.yaml) == true ]]; then ################################
+  if [[ $(yq '.settings.addSelectedFile' /home/$user/Pictures/pizza-papers/settings.yaml) == true ]]; then
     yq -yi '.settings.addSelectedFile = false' /home/$user/Pictures/pizza-papers/settings.yaml
   else
     yq -yi '.settings.addSelectedFile = true' /home/$user/Pictures/pizza-papers/settings.yaml
@@ -444,8 +432,6 @@ function Setting3 (){     #Used for if the user wants to set new wallpapers
 }
 
 function Setting4 (){     #Used to set the default wallpaper
-  SETTING_NUMBER=4 #Use this to determine what setting/line is being changed
-
   NewDefaultWallpaper=$(gsettings get org.gnome.desktop.background picture-uri-dark)
   yq -yi ".defaultWallpaper = \"$NewDefaultWallpaper\"" /home/$user/Pictures/pizza-papers/settings.yaml
   echo -e "\n##########################\nSet $NewDefaultWallpaper as your new default wallpaper\n##########################\n"
@@ -527,7 +513,7 @@ while true; do
           if [[  ${WallpaperPathList[@]} != *"$2"* ]]; then					                                      #Checks to make sure that PART of $fileL is nowhere in the WallpaperPathList array
             feh $2 -E 128 -y 128								                                                      #Show the new wallpaper in a -E (height) 128 px and -y (width) 128 px (yes they made -y be width)
             cd /home/pizza2d1/Pictures/pizza-papers/ && { curl -O "$2" ; cd -; }                      #Downloads the URL image to the pizza-papers directory
-            shortname=$(basename $2)          ###########################################
+            shortname=$(basename $2)
             yq -yi ".customWallpapers.$shortname = \"$2\"" /home/$user/Pictures/pizza-papers/settings.yaml
           else
             echo "That wallpaper is already in your list of wallpapers"

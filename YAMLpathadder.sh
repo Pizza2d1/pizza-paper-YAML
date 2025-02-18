@@ -27,9 +27,6 @@ AddFile (){
 ResetFiles (){
   rm -rf /home/$user/Pictures/pizza-papers
 }
-# ResetSettings (){
-#   rm /home/$user/Pictures/pizza-papers/settings.yaml
-# }
 
 options=$(getopt -o ar,add,remove --long "add,remove,retard,copy" -- "$@")
 [ $? -eq 0 ] || { 
@@ -61,9 +58,6 @@ while true; do
         echo "Resetting pizzapaper contents"
         sleep 0.2
         ResetFiles
-        # echo "Resetting settings"
-        # sleep 0.2
-        # ResetSettings
         gsettings set org.gnome.desktop.background picture-uri "file:///usr/share/backgrounds/warty-final-ubuntu.png"
         gsettings set org.gnome.desktop.background picture-uri-dark "file:///usr/share/backgrounds/warty-final-ubuntu.png"
         exit;;
